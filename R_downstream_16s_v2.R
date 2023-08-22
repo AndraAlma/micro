@@ -10,10 +10,11 @@ library("EnhancedVolcano")
 library("apeglm")
 library("ashr")
 library("Rmisc")
+library("RColorBrewer")
 install.packages("randomcoloR")
 remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
 
-
+setwd("C:/Users/dansa/Documents/Exjobb/summer_project")
 # File paths to count & metadata:
 path_to_metadata_file <- "metadata_chickens.csv"
 # Read in files:
@@ -47,7 +48,7 @@ microbiota <- transform_sample_counts(phyloclass, function(x) 1 * x / sum(x) )
 microbiota_r_a = transform_sample_counts(microbiota, function(x) x/sum(x)*100)
 
 k <- length(levels(factor(microbiota@tax_table[,4])))
-colors <- distinctColorPalette(k = k)
+colors <- distinctColorPalette(k = 8)
 colors <- c("#B4A7EB", "#9C746E", "#6EB1A7", "#9D4D81", "#9E95A1", "#62F29C", "#E7BF78",
                      "#8671BA", "#E7C7BC", "#A4E7CE", "#E867B1", "#DCEFE4", "#A34BDA",
                      "#4A6C9D", "#ED563F", "#92AA7D", "#D46EDE", "#E7B03B", "#AAEAAE",
@@ -59,6 +60,11 @@ colors <- c("#B4A7EB", "#9C746E", "#6EB1A7", "#9D4D81", "#9E95A1", "#62F29C", "#
                      "#A5CAEB", "#E935B3", "#63B658", "#A5E48E", "#97A24C", "#E3E688",
                      "#5CE9BA", "#E3DAEA", "#D4E6BD", "#C6E067", "#665BE5", "#4A7574",
                      "#A973DC")
+
+colors_U_I <- c("#DD6A9A","#E04C71","#60E6D0","#6EB1A7","#E6877D","#ED563F", "#39AFED","#4A6C9D" ) 
+palette_U_I <- brewer.pal(8, "RdBu")
+
+
 #Plot each group
   #Plot each of the 8 categories
 p <- plot_bar(microbiota, x="Description", y="Abundance", fill="Rank4")
@@ -108,9 +114,16 @@ v <- plot_bar(microbiota, x="SampleID", y="Abundance", fill="Rank4")+
   facet_grid(~Description, scales = "free", space = "free")
 v <- v + scale_fill_manual(name="Rank4", values=colors)+
   scale_color_manual(name="Rank4", values=colors)+
-  geom_bar(aes(color=Rank4, fill=Rank4), stat="identity", position="stack")
-plot_path <- "plots/all_samples_bar_4.png"
-png(plot_path, height = 1200, width = 1800)
+  geom_bar(aes(color=Rank4, fill=Rank4), stat="identity", position="stack")+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 15),
+        plot.title = element_text(size = 20),strip.text.x = element_text(size = 14),
+        legend.position = "right")+
+        guides(fill=guide_legend(ncol=2))
+  
+plot_path <- "plots/all_samples_bar_4_text.png"
+png(plot_path, height = 1250, width = 1800)
+par(mar = c(5,5,5,5))
 v
 dev.off()
 
@@ -150,12 +163,10 @@ png(plot_path, height = 1200, width = 1800)
 v
 dev.off()
 
-myPalette=colors
+# show color palette
+myPalette=colors_U_I
 names(myPalette) = paste("row", 1:length(colors))
-
-# create data that references the palette
 colorKey = data.frame(colorName=names(myPalette))
-# plot with ggplot, referencing the palette
 ggplot(data=colorKey, aes(x=1, y = 1:nrow(colorKey), fill=colorName, label=colorName)) +
   geom_tile() +
   scale_fill_manual(values = myPalette) +
@@ -164,14 +175,41 @@ ggplot(data=colorKey, aes(x=1, y = 1:nrow(colorKey), fill=colorName, label=color
   geom_text()
 
 
+p <- plot_richness(phyloclass, x= "Description", measures=c("Chao1", "Shannon"), color = "Description")
+p <- p + geom_boxplot(alpha=0.6)+ 
+  aes(fill = Description, color = Description)+
+  theme(legend.position="none", axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=12))+
+  scale_fill_manual(name = "Description", values= c(colors_U_I))+
+  scale_color_manual(name = "Description", values= c(colors_U_I))
+plot_path <- "plots/diversity_category.png"
+png(plot_path, height = 600, width = 1000)
+p
+dev.off()
+
+p <- plot_richness(phyloclass, color = "Description")+ facet_grid(~TreatmentGroup, scales = "free", space = "free")
+q <- plot_richness(phyloclass, color = "Description")+ facet_grid(~InfectionStatus, scales = "free", space = "free")
+r <- plot_richness(phyloclass, color = "Description")+ facet_grid(~Timepoint, scales = "free", space = "free")
+plot_list = list(p, q, r)
+plot_path <- "plots/diversity_all_groups.png"
+png(plot_path, height = 1000, width = 1000)
+multiplot(plotlist = plot_list)
+dev.off()
+
+
 #Ordination
 pcoa_phy <- ordinate(phyloclass, method = "PCoA", "wunifrac")
 p1 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="Description")
-p1 <- p1 + geom_encircle(aes(fill=Description, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+p1 <- p1 + geom_encircle(aes(fill=Description, alpha = 0.1, s_shape = 1, expand = 0,)) + 
+  geom_point(size=3)+
+  scale_fill_manual(name="Description", values=c(colors_U_I))+
+  scale_color_manual(name="Description", values=c(colors_U_I))
+
 p2 <-plot_ordination(phyloclass, pcoa_phy, type = "samples", color="TreatmentGroup")
 p2 <- p2 + geom_encircle(aes(fill=TreatmentGroup, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+
 p3 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="InfectionStatus")
 p3 <- p3 + geom_encircle(aes(fill=InfectionStatus, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+
 p4 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="Timepoint")
 p4 <- p4 + geom_encircle(aes(fill=Timepoint, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
 
@@ -232,42 +270,30 @@ resAC_U_D10 <- results(dds, contrast=c("Description", "algae_uninfected_D10", "c
 
 sigtabA_UI_D10 <- subset(resA_UI_D10, padj < 0.01)
 sigtabA_UI_D10 = cbind(as(sigtabA_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabA_UI_D10), ], "matrix"))
-head(sigtabA_UI_D10)
 sigtabA_UI_D7 <- subset(resA_UI_D7, padj < 0.01)
 sigtabA_UI_D7 = cbind(as(sigtabA_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabA_UI_D7), ], "matrix"))
-head(sigtabA_UI_D7)
 sigtabC_UI_D10 <- subset(resC_UI_D10, padj < 0.01)
 sigtabC_UI_D10 = cbind(as(sigtabC_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabC_UI_D10), ], "matrix"))
-head(sigtabC_UI_D10)
 sigtabC_UI_D7 <- subset(resC_UI_D7, padj < 0.01)
 sigtabC_UI_D7 = cbind(as(sigtabC_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabC_UI_D7), ], "matrix"))
-head(sigtabC_UI_D7)
 
 sigtabA_I_D710 <- subset(resA_I_D710, padj < 0.01)
 sigtabA_I_D710 = cbind(as(sigtabA_I_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabA_I_D710), ], "matrix"))
-head(sigtabA_I_D710)
 sigtabA_U_D710 <- subset(resA_U_D710, padj < 0.01)
 sigtabA_U_D710 = cbind(as(sigtabA_U_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabA_U_D710), ], "matrix"))
-head(sigtabA_U_D710)
 sigtabC_I_D710 <- subset(resC_I_D710, padj < 0.01)
 sigtabC_I_D710 = cbind(as(sigtabC_I_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabC_I_D710), ], "matrix"))
-head(sigtabC_I_D710)
 sigtabC_U_D710 <- subset(resC_U_D710, padj < 0.01)
 sigtabC_U_D710 = cbind(as(sigtabC_U_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabC_U_D710), ], "matrix"))
-head(sigtabC_U_D710)
 
 sigtabAC_I_D7 <- subset(resAC_I_D7, padj < 0.01)
 sigtabAC_I_D7 = cbind(as(sigtabAC_I_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabAC_I_D7), ], "matrix"))
-head(sigtabAC_I_D7)
 sigtabAC_I_D10 <- subset(resAC_I_D10, padj < 0.01)
 sigtabAC_I_D10 = cbind(as(sigtabAC_I_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabAC_I_D10), ], "matrix"))
-head(sigtabAC_I_D10)
 sigtabAC_U_D7 <- subset(resAC_U_D7, padj < 0.01)
 sigtabAC_U_D7 = cbind(as(sigtabAC_U_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabAC_U_D7), ], "matrix"))
-head(sigtabAC_U_D7)
 sigtabAC_U_D10 <- subset(resAC_U_D10, padj < 0.01)
 sigtabAC_U_D10 = cbind(as(sigtabAC_U_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabAC_U_D10), ], "matrix"))
-head(sigtabAC_U_D10)
 
 
 
@@ -416,5 +442,32 @@ while (i <= length(sigtabshrink)){
 }
 plot_path <- "plots/all_plots_shrinklfc.png"
 png(plot_path, height = 1200, width = 1800)
-multiplot(plotlist = plot3_list, layout = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12), nrow = 3, byrow = TRUE))
+multiplot(plotlist = plot3_list, layout = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12),                                                nrow = 3, byrow = TRUE))
 dev.off()
+
+
+ord_sigtab <- sigtabA_I_D710[order(sigtabA_I_D710$padj),]
+ord_sigtab["Taxonomy"] <- paste(ord_sigtab$Rank1, ord_sigtab$Rank2, ord_sigtab$Rank3,
+                                ord_sigtab$Rank4, ord_sigtab$Rank5, ord_sigtab$Rank6, sep = ", ")
+
+j <- 1
+while (j <= length(sigtabs)){
+  sigtab <- sigtabs[[j]]
+  ord_sigtab <- sigtab[order(sigtab$padj),]
+  ord_sigtab["Taxonomy"] <- paste(ord_sigtab$Rank1, ord_sigtab$Rank2, ord_sigtab$Rank3,
+                                  ord_sigtab$Rank4, ord_sigtab$Rank5, ord_sigtab$Rank6, sep = ", ")
+  
+  i <- 0
+  while (i < nrow(ord_sigtab)) {
+    i <- i + 1
+   df_temp <- cbind(rownames(ord_sigtab[i,]), ord_sigtab[i,][,c("log2FoldChange", "pvalue", "padj", "Taxonomy")])
+   if (i == 1) {
+      all_de_genes <- df_temp
+   } else {
+     all_de_genes <- rbind(all_de_genes, df_temp)
+   }
+  }
+  file_path <- paste("plots/all_de_genes_",c(conditions[j]), ".csv", sep="")
+  write.table(all_de_genes, file_path, sep = ",", row.names = FALSE)
+  j <- j + 1
+}
