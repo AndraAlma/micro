@@ -17,11 +17,17 @@ remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
 setwd("C:/Users/dansa/Documents/Exjobb/summer_project")
 # File paths to count & metadata:
 path_to_metadata_file <- "metadata_chickens.csv"
+path_metadata_lesions <- "metadata_chickens_lesion.csv"
 # Read in files:
 metadata <- read.delim(path_to_metadata_file, sep = ";", check.names=FALSE, stringsAsFactors=FALSE)
 chicken_metadata <- metadata 
 less_metadata <- cbind(metadata$`#SampleID`, metadata$TreatmentGroup, metadata$InfectionStatus, metadata$Timepoint, metadata$Description)
 colnames(less_metadata) <- c("SampleID", "TreatmentGroup", "InfectionStatus", "Timepoint", "Description")
+metadata_lesion <- read.delim(path_metadata_lesions, sep = ";", check.names=FALSE, stringsAsFactors=FALSE)
+less_metadata_lesion <- cbind(metadata_lesion$`#SampleID`, metadata_lesion$TreatmentGroup, metadata_lesion$InfectionStatus, 
+                              metadata_lesion$Timepoint, metadata_lesion$Description, metadata_lesion$LesionScore)
+colnames(less_metadata_lesion) <- c("SampleID", "TreatmentGroup", "InfectionStatus", "Timepoint", "Description", "LesionScore")
+
 otutable = "outputs_DADA/OTU_table.txt"
 otus <- read.delim(otutable, sep = "\t", check.names=FALSE, stringsAsFactors=FALSE)
 colnames(otus)[1] <- "OTU"
@@ -62,7 +68,7 @@ colors <- c("#B4A7EB", "#9C746E", "#6EB1A7", "#9D4D81", "#9E95A1", "#62F29C", "#
                      "#A973DC")
 
 colors_U_I <- c("#DD6A9A","#E04C71","#60E6D0","#6EB1A7","#E6877D","#ED563F", "#39AFED","#4A6C9D" ) 
-palette_U_I <- brewer.pal(8, "RdBu")
+
 
 
 #Plot each group
@@ -110,8 +116,13 @@ plot_path <- "plots/uninfected_infected_bar_4.png"
 png(plot_path, height = 1200, width = 1800)
 u
 dev.off()
+
 v <- plot_bar(microbiota, x="SampleID", y="Abundance", fill="Rank4")+
-  facet_grid(~Description, scales = "free", space = "free")
+  facet_grid(~factor(Description,levels=c("control_uninfected_D7", "control_uninfected_D10",
+                                          "control_infected_D7", "control_infected_D10",
+                                          "algae_uninfected_D7", "algae_uninfected_D10",
+                                          "algae_infected_D7", "algae_infected_D10")), 
+                     scales = "free", space = "free")
 v <- v + scale_fill_manual(name="Rank4", values=colors)+
   scale_color_manual(name="Rank4", values=colors)+
   geom_bar(aes(color=Rank4, fill=Rank4), stat="identity", position="stack")+
@@ -135,6 +146,9 @@ taxtab20[top20otus, "Rank4_2100"] <- as(tax_table(microbiota)[top20otus, "Rank4"
 tax_table(microbiota) <- tax_table(taxtab20)
 microbiota20 = prune_taxa(top20otus, microbiota)
 
+
+#Plot only top 20
+
 u <- plot_bar(microbiota20, x="SampleID", y="Abundance", fill="Rank4_2100")+
   facet_grid(~InfectionStatus, scales = "free", space = "free")
 u <- u + scale_fill_manual(name="Rank4", values=colors)+
@@ -154,25 +168,22 @@ png(plot_path, height = 1200, width = 1800)
 t
 dev.off()
 v <- plot_bar(microbiota20, x="SampleID", y="Abundance", fill="Rank4_2100")+
-  facet_grid(~Description, scales = "free", space = "free")
+  facet_grid(~factor(Description,levels=c("control_uninfected_D7", "control_uninfected_D10",
+                                          "control_infected_D7", "control_infected_D10",
+                                          "algae_uninfected_D7", "algae_uninfected_D10",
+                                          "algae_infected_D7", "algae_infected_D10")), 
+             scales = "free", space = "free")
 v <- v + scale_fill_manual(name="Rank4", values=colors)+
   scale_color_manual(name="Rank4", values=colors)+
-  geom_bar(aes(color=Rank4_2100, fill=Rank4_2100), stat="identity", position="stack")
+  geom_bar(aes(color=Rank4_2100, fill=Rank4_2100), stat="identity", position="stack")+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 15),
+        plot.title = element_text(size = 20),strip.text.x = element_text(size = 14))
 plot_path <- "plots/all_samples_bar_4_top20.png"
 png(plot_path, height = 1200, width = 1800)
 v
 dev.off()
 
-# show color palette
-myPalette=colors_U_I
-names(myPalette) = paste("row", 1:length(colors))
-colorKey = data.frame(colorName=names(myPalette))
-ggplot(data=colorKey, aes(x=1, y = 1:nrow(colorKey), fill=colorName, label=colorName)) +
-  geom_tile() +
-  scale_fill_manual(values = myPalette) +
-  theme_void()+
-  theme(legend.position="none") + 
-  geom_text()
 
 
 p <- plot_richness(phyloclass, x= "Description", measures=c("Chao1", "Shannon"), color = "Description")
@@ -186,15 +197,6 @@ png(plot_path, height = 600, width = 1000)
 p
 dev.off()
 
-p <- plot_richness(phyloclass, color = "Description")+ facet_grid(~TreatmentGroup, scales = "free", space = "free")
-q <- plot_richness(phyloclass, color = "Description")+ facet_grid(~InfectionStatus, scales = "free", space = "free")
-r <- plot_richness(phyloclass, color = "Description")+ facet_grid(~Timepoint, scales = "free", space = "free")
-plot_list = list(p, q, r)
-plot_path <- "plots/diversity_all_groups.png"
-png(plot_path, height = 1000, width = 1000)
-multiplot(plotlist = plot_list)
-dev.off()
-
 
 #Ordination
 pcoa_phy <- ordinate(phyloclass, method = "PCoA", "wunifrac")
@@ -202,16 +204,35 @@ p1 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="Description
 p1 <- p1 + geom_encircle(aes(fill=Description, alpha = 0.1, s_shape = 1, expand = 0,)) + 
   geom_point(size=3)+
   scale_fill_manual(name="Description", values=c(colors_U_I))+
-  scale_color_manual(name="Description", values=c(colors_U_I))
+  scale_color_manual(name="Description", values=c(colors_U_I))+
+  guides(alpha = FALSE)+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))
 
 p2 <-plot_ordination(phyloclass, pcoa_phy, type = "samples", color="TreatmentGroup")
-p2 <- p2 + geom_encircle(aes(fill=TreatmentGroup, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+p2 <- p2 + geom_encircle(aes(fill=TreatmentGroup, alpha = 0.1, s_shape = 1, expand = 0,)) + 
+  geom_point(size=3)+
+  guides(alpha = FALSE)+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))
 
 p3 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="InfectionStatus")
-p3 <- p3 + geom_encircle(aes(fill=InfectionStatus, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+p3 <- p3 + geom_encircle(aes(fill=InfectionStatus, alpha = 0.1, s_shape = 1, expand = 0,)) + 
+  geom_point(size=3)+
+  guides(alpha = FALSE)+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))
 
 p4 <- plot_ordination(phyloclass, pcoa_phy, type = "samples", color="Timepoint")
-p4 <- p4 + geom_encircle(aes(fill=Timepoint, alpha = 0.1, s_shape = 1, expand = 0,)) + geom_point(size=3)
+p4 <- p4 + geom_encircle(aes(fill=Timepoint, alpha = 0.1, s_shape = 1, expand = 0,)) + 
+  geom_point(size=3)+
+  guides(alpha = FALSE)+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))
 
 plot_list = list(p1, p2, p3, p4)
 plot_path <- "plots/all_ord.png"
@@ -219,17 +240,16 @@ png(plot_path, height = 1200, width = 1800)
 multiplot(plotlist = plot_list, layout = matrix(c(1,2,3,4), nrow = 2, byrow = TRUE))
 dev.off()
 
-#Create Amp object
-data_amp <- amp_load(
-  otutable = otus,
-  metadata = less_metadata
-)
-amp_rarefaction_curve(
-  data_amp,
-  color_by = "TreatmentGroup")
-amp_rarefaction_curve(
-  data_amp,
-  color_by = "InfectionStatus")
+plot_path <- "plots/pcoa_all_groups.png"
+png(plot_path, height = 600, width = 800)
+p1
+dev.off()
+
+plot_list = list(p2, p4)
+plot_path <- "plots/pcoa_AC_D7D10.png"
+png(plot_path, height = 800, width = 600)
+multiplot(plotlist = plot_list)
+dev.off()
 
 
 # DEseq analysis
@@ -244,10 +264,10 @@ geoMeans = apply(counts(dds), 1, gm_mean)
 dds = estimateSizeFactors(dds, type="poscounts")
 #dds = estimateSizeFactors(dds, geoMeans = geoMeans)
 dds <- DESeq(dds)
+normalized_counts <- counts(dds, normalized=TRUE)
 res <- results(dds)
 
 # Create contrasts
-
 # Uninfected vs Infected
 resA_UI_D10 <- results(dds, contrast=c("Description", "algae_infected_D10", "algae_uninfected_D10"))
 resA_UI_D7 <- results(dds, contrast=c("Description", "algae_infected_D7", "algae_uninfected_D7"))
@@ -297,47 +317,6 @@ sigtabAC_U_D10 = cbind(as(sigtabAC_U_D10, "data.frame"), as(tax_table(phyloclass
 
 
 
-#Shrink LFC
-resshrink_A_UI_D10 <- lfcShrink(dds, contrast=c("Description", "algae_uninfected_D10", "algae_infected_D10"),type="ashr")
-sigtabshrink_A_UI_D10 <- subset(resshrink_A_UI_D10, padj < 0.01)
-sigtabshrink_A_UI_D10 = cbind(as(sigtabshrink_A_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_A_UI_D10), ], "matrix"))
-resshrink_A_UI_D7 <- lfcShrink(dds, contrast=c("Description", "algae_uninfected_D7", "algae_infected_D7"),type="ashr")
-sigtabshrink_A_UI_D7 <- subset(resshrink_A_UI_D7, padj < 0.01)
-sigtabshrink_A_UI_D7 = cbind(as(sigtabshrink_A_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_A_UI_D7), ], "matrix"))
-resshrink_C_UI_D10 <- lfcShrink(dds, contrast=c("Description", "control_uninfected_D10", "control_infected_D10"),type="ashr")
-sigtabshrink_C_UI_D10 <- subset(resshrink_C_UI_D10, padj < 0.01)
-sigtabshrink_C_UI_D10 = cbind(as(sigtabshrink_C_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_C_UI_D10), ], "matrix"))
-resshrink_C_UI_D7 <- lfcShrink(dds, contrast=c("Description", "control_uninfected_D7", "control_infected_D7"),type="ashr")
-sigtabshrink_C_UI_D7 <- subset(resshrink_C_UI_D7, padj < 0.01)
-sigtabshrink_C_UI_D7 = cbind(as(sigtabshrink_C_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_C_UI_D7), ], "matrix"))
-
-resshrink_A_U_D710 <- lfcShrink(dds, contrast=c("Description", "algae_uninfected_D7", "algae_uninfected_D10"),type="ashr")
-sigtabshrink_A_U_D710 <- subset(resshrink_A_U_D710, padj < 0.01)
-sigtabshrink_A_U_D710 = cbind(as(sigtabshrink_A_U_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_A_U_D710), ], "matrix"))
-resshrink_A_I_D710 <- lfcShrink(dds, contrast=c("Description", "algae_infected_D7", "algae_infected_D10"),type="ashr")
-sigtabshrink_A_I_D710 <- subset(resshrink_A_I_D710, padj < 0.01)
-sigtabshrink_A_I_D710 = cbind(as(sigtabshrink_A_I_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_A_I_D710), ], "matrix"))
-resshrink_C_U_D710 <- lfcShrink(dds, contrast=c("Description", "control_uninfected_D7", "control_uninfected_D10"),type="ashr")
-sigtabshrink_C_U_D710 <- subset(resshrink_C_U_D710, padj < 0.01)
-sigtabshrink_C_U_D710 = cbind(as(sigtabshrink_C_U_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_C_U_D710), ], "matrix"))
-resshrink_C_I_D710 <- lfcShrink(dds, contrast=c("Description", "control_infected_D7", "control_infected_D10"),type="ashr")
-sigtabshrink_C_I_D710 <- subset(resshrink_C_I_D710, padj < 0.01)
-sigtabshrink_C_I_D710 = cbind(as(sigtabshrink_C_I_D710, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_C_I_D710), ], "matrix"))
-
-resshrink_AC_I_D7 <- lfcShrink(dds, contrast=c("Description", "algae_infected_D7", "control_infected_D7"),type="ashr")
-sigtabshrink_AC_I_D7 <- subset(resshrink_AC_I_D7, padj < 0.01)
-sigtabshrink_AC_I_D7 = cbind(as(sigtabshrink_AC_I_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_AC_I_D7), ], "matrix"))
-resshrink_AC_I_D10 <- lfcShrink(dds, contrast=c("Description", "algae_infected_D10", "control_infected_D10"),type="ashr")
-sigtabshrink_AC_I_D10 <- subset(resshrink_AC_I_D10, padj < 0.01)
-sigtabshrink_AC_I_D10 = cbind(as(sigtabshrink_AC_I_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_AC_I_D10), ], "matrix"))
-resshrink_AC_U_D7 <- lfcShrink(dds, contrast=c("Description", "algae_uninfected_D7", "control_uninfected_D7"),type="ashr")
-sigtabshrink_AC_U_D7 <- subset(resshrink_AC_U_D7, padj < 0.01)
-sigtabshrink_AC_U_D7 = cbind(as(sigtabshrink_AC_U_D7, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_AC_U_D7), ], "matrix"))
-resshrink_AC_U_D10 <- lfcShrink(dds, contrast=c("Description", "algae_uninfected_D10", "control_uninfected_D10"),type="ashr")
-sigtabshrink_AC_U_D10 <- subset(resshrink_AC_U_D10, padj < 0.01)
-sigtabshrink_AC_U_D10 = cbind(as(sigtabshrink_AC_U_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabshrink_AC_U_D10), ], "matrix"))
-
-
 conditions <- c("A_UI_D10","A_UI_D7", "C_UI_D10", "C_UI_D7", 
                 "A_U_D710", "A_I_D710", "C_U_D710", "C_I_D710",
                 "AC_I_D7", "AC_I_D10", "AC_U_D7", "AC_U_D10")
@@ -349,11 +328,6 @@ reslist <- list(resA_UI_D10, resA_UI_D7, resC_UI_D10, resC_UI_D7,
 sigtabs <- list(sigtabA_UI_D10, sigtabA_UI_D7, sigtabC_UI_D10, sigtabC_UI_D7, 
                 sigtabA_U_D710, sigtabA_I_D710, sigtabC_U_D710, sigtabC_I_D710,
                 sigtabAC_I_D7, sigtabAC_I_D10, sigtabAC_U_D7, sigtabAC_U_D10)
-
-sigtabshrink <- list(sigtabshrink_A_UI_D10, sigtabshrink_A_UI_D7, sigtabshrink_C_UI_D10, sigtabshrink_C_UI_D7, 
-                     sigtabshrink_A_U_D710, sigtabshrink_A_I_D710, sigtabshrink_C_U_D710, sigtabshrink_C_I_D710,
-                     sigtabshrink_AC_I_D7, sigtabshrink_AC_I_D10, sigtabshrink_AC_U_D7, sigtabshrink_AC_U_D10)
-
 
 #Plot volcanoes
 logfc_threshold <- 1
@@ -381,7 +355,7 @@ while (i <= length(sigtabs)){
   plot_list[[i]] <- p
   i = i + 1
 } 
-volcano_path <- "plots/all_chicken_plots_micro.png"
+volcano_path <- "plots/all_chicken_plots_volcano.png"
 png(volcano_path, height = 1200, width = 1800)
 multiplot(plotlist = plot_list, layout = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12), nrow = 3, byrow = TRUE))
 dev.off()
@@ -419,36 +393,7 @@ multiplot(plotlist = plot2_list, layout = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12), 
 dev.off()
 
 
-# Plot shrunk lfc
-i = 1
-plot3_list <- list()
-while (i <= length(sigtabshrink)){
-  x = tapply(sigtabshrink[[i]]$log2FoldChange, sigtabshrink[[i]]$Rank3, function(x) max(x))
-  x = sort(x, TRUE)
-  sigtabshrink[[i]]$Rank3 = factor(as.character(sigtabshrink[[i]]$Rank3), levels=names(x))
-  # Genus order
-  x = tapply(sigtabshrink[[i]]$log2FoldChange, sigtabshrink[[i]]$Rank4, function(x) max(x))
-  x = sort(x, TRUE)
-  sigtabshrink[[i]]$Rank4 = factor(as.character(sigtabshrink[[i]]$Rank4), levels=names(x))
-  
-  p <- ggplot(sigtabshrink[[i]], aes(x=Rank4, y=log2FoldChange, color=Rank3)) + labs(title=conditions[i])+ geom_point(size=6) + 
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) 
-  theme_set(theme_bw())
-  scale_fill_discrete <- function(palname = "Set1", ...) {
-    scale_fill_brewer(palette = palname, ...)
-  }
-  plot3_list[[i]] <- p
-  i = i + 1
-}
-plot_path <- "plots/all_plots_shrinklfc.png"
-png(plot_path, height = 1200, width = 1800)
-multiplot(plotlist = plot3_list, layout = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12),                                                nrow = 3, byrow = TRUE))
-dev.off()
-
-
-ord_sigtab <- sigtabA_I_D710[order(sigtabA_I_D710$padj),]
-ord_sigtab["Taxonomy"] <- paste(ord_sigtab$Rank1, ord_sigtab$Rank2, ord_sigtab$Rank3,
-                                ord_sigtab$Rank4, ord_sigtab$Rank5, ord_sigtab$Rank6, sep = ", ")
+# Write out lists sorted on adjusted p value
 
 j <- 1
 while (j <= length(sigtabs)){
@@ -471,3 +416,98 @@ while (j <= length(sigtabs)){
   write.table(all_de_genes, file_path, sep = ",", row.names = FALSE)
   j <- j + 1
 }
+
+
+trait_meta <- less_metadata_lesion[,c(1,2,3,4,6)]
+rownames(trait_meta) <- trait_meta[,1]
+trait_meta[trait_meta[,2]=="control",2] <- 0
+trait_meta[trait_meta[,2]=="algae",2] <- 1
+trait_meta[trait_meta[,3]=="uninfected",3] <- 0
+trait_meta[trait_meta[,3]=="infected",3] <- 1
+trait_meta[trait_meta[,4]=="D7",4] <- 0
+trait_meta[trait_meta[,4]=="D10",4] <- 1
+trait_meta <- trait_meta[,2:5]
+names(trait_meta) <- c("TreatmentGroup", "InfectionStatus", "Timepoint", "LesionScore")
+trait_df <- data.frame(trait_meta)
+trait_df$TreatmentGroup <- as.numeric(trait_df$TreatmentGroup)
+trait_df$InfectionStatus <- as.numeric(trait_df$InfectionStatus)
+trait_df$Timepoint <- as.numeric(trait_df$Timepoint)
+trait_df$LesionScore <- as.numeric(trait_df$LesionScore)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_counts)){
+  countTraitCorP = cor.test(normalized_counts[i,], trait_df$TreatmentGroup, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCorP$p.value) == FALSE) & (countTraitCorP$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_counts)[i], countTraitCorP$estimate, countTraitCorP$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr <- df_temp
+    } else {
+      all_sig_corr <- rbind(all_sig_corr, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_algae.csv")
+write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+
+i = 1
+j = 1
+while (i <= nrow(normalized_counts)){
+  countTraitCorP = cor.test(normalized_counts[i,], trait_df$TreatmentGroup, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCorP$p.value) == FALSE) & (countTraitCorP$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_counts)[i], countTraitCorP$estimate, countTraitCorP$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr <- df_temp
+    } else {
+      all_sig_corr <- rbind(all_sig_corr, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_algae.csv")
+write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+
+
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_counts)){
+  countTraitCortest_lesion = cor.test(normalized_counts[i,], trait_df$LesionScore, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_counts)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr <- df_temp
+    } else {
+      all_sig_corr <- rbind(all_sig_corr, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_lesion.csv")
+write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+
+while (i <= nrow(normalized_counts)){
+  countTraitCortest_lesion = cor.test(normalized_counts[i,], trait_df$LesionScore, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_counts)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr <- df_temp
+    } else {
+      all_sig_corr <- rbind(all_sig_corr, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_lesion.csv")
+write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
