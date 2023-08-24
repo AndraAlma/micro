@@ -128,7 +128,7 @@ v <- v + scale_fill_manual(name="Rank4", values=colors)+
   geom_bar(aes(color=Rank4, fill=Rank4), stat="identity", position="stack")+
   theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
         axis.title = element_text(size = 18),legend.text = element_text(size = 15),
-        plot.title = element_text(size = 20),strip.text.x = element_text(size = 14),
+        plot.title = element_text(size = 20),strip.text.x = element_text(size = 12),
         legend.position = "right")+
         guides(fill=guide_legend(ncol=2))
   
@@ -417,6 +417,9 @@ while (j <= length(sigtabs)){
   j <- j + 1
 }
 
+
+
+# Correlation analysis 
 
 trait_meta <- less_metadata_lesion[,c(1,2,3,4,6)]
 rownames(trait_meta) <- trait_meta[,1]
