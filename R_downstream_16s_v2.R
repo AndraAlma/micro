@@ -47,6 +47,25 @@ phyloclass <- import_biom(BIOMfilename,
 metadata$Description <- paste(metadata$TreatmentGroup,metadata$InfectionStatus,metadata$Timepoint, sep="_")
 phyloclass@sam_data$Description <- metadata$Description
 
+# Set up binary traits:
+trait_meta <- less_metadata_lesion[,c(1,2,3,4,6)]
+rownames(trait_meta) <- trait_meta[,1]
+trait_meta[trait_meta[,2]=="control",2] <- 0
+trait_meta[trait_meta[,2]=="algae",2] <- 1
+trait_meta[trait_meta[,3]=="uninfected",3] <- 0
+trait_meta[trait_meta[,3]=="infected",3] <- 1
+trait_meta[trait_meta[,4]=="D7",4] <- 0
+trait_meta[trait_meta[,4]=="D10",4] <- 1
+trait_meta <- trait_meta[,2:5]
+names(trait_meta) <- c("TreatmentGroup", "InfectionStatus", "Timepoint", "LesionScore")
+trait_df <- data.frame(trait_meta)
+trait_df$TreatmentGroup <- as.numeric(trait_df$TreatmentGroup)
+trait_df$InfectionStatus <- as.numeric(trait_df$InfectionStatus)
+trait_df$Timepoint <- as.numeric(trait_df$Timepoint)
+trait_df$LesionScore <- gsub(",", ".", trait_df$LesionScore)
+trait_df$LesionScore <- as.numeric(trait_df$LesionScore)
+
+
 
 #Normalize
 microbiota <- transform_sample_counts(phyloclass, function(x) 1 * x / sum(x) )
@@ -138,6 +157,32 @@ par(mar = c(5,5,5,5))
 v
 dev.off()
 
+#Plot with lesion scores:
+
+microbiota_lesion <- microbiota
+microbiota_lesion@sam_data$SampleID <- paste(microbiota_lesion@sam_data$SampleID, trait_df$LesionScore, sep="_")
+
+v <- plot_bar(microbiota_lesion, x="SampleID", y="Abundance", fill="Rank4")+
+  facet_grid(~factor(Description,levels=c("control_uninfected_D7", "control_uninfected_D10",
+                                          "control_infected_D7", "control_infected_D10",
+                                          "algae_uninfected_D7", "algae_uninfected_D10",
+                                          "algae_infected_D7", "algae_infected_D10")), 
+             scales = "free", space = "free")
+v <- v + scale_fill_manual(name="Rank4", values=colors)+
+  scale_color_manual(name="Rank4", values=colors)+
+  geom_bar(aes(color=Rank4, fill=Rank4), stat="identity", position="stack")+
+  theme(axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 18),legend.text = element_text(size = 15),
+        plot.title = element_text(size = 20),strip.text.x = element_text(size = 12),
+        legend.position = "right")+
+  guides(fill=guide_legend(ncol=2))
+
+plot_path <- "plots/all_samples_bar_4_lesions.png"
+png(plot_path, height = 1250, width = 1800)
+par(mar = c(5,5,5,5))
+v
+dev.off()
+
 # Find top 20
 top20otus = names(sort(taxa_sums(microbiota), TRUE)[1:2100])
 taxtab20 = cbind(tax_table(microbiota), Rank4_2100 = NA)
@@ -188,8 +233,11 @@ dev.off()
 
 p <- plot_richness(phyloclass, x= "Description", measures=c("Chao1", "Shannon"), color = "Description")
 p <- p + geom_boxplot(alpha=0.6)+ 
-  aes(fill = Description, color = Description)+
-  theme(legend.position="none", axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=12))+
+  aes(factor(Description,levels=c("control_uninfected_D7", "control_uninfected_D10",
+                                  "control_infected_D7", "control_infected_D10",
+                                  "algae_uninfected_D7", "algae_uninfected_D10",
+                                  "algae_infected_D7", "algae_infected_D10")),fill = Description, color = Description)+
+  theme(legend.position="none", axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=10),axis.title.x=element_blank())+
   scale_fill_manual(name = "Description", values= c(colors_U_I))+
   scale_color_manual(name = "Description", values= c(colors_U_I))
 plot_path <- "plots/diversity_category.png"
@@ -421,23 +469,6 @@ while (j <= length(sigtabs)){
 
 # Correlation analysis 
 
-trait_meta <- less_metadata_lesion[,c(1,2,3,4,6)]
-rownames(trait_meta) <- trait_meta[,1]
-trait_meta[trait_meta[,2]=="control",2] <- 0
-trait_meta[trait_meta[,2]=="algae",2] <- 1
-trait_meta[trait_meta[,3]=="uninfected",3] <- 0
-trait_meta[trait_meta[,3]=="infected",3] <- 1
-trait_meta[trait_meta[,4]=="D7",4] <- 0
-trait_meta[trait_meta[,4]=="D10",4] <- 1
-trait_meta <- trait_meta[,2:5]
-names(trait_meta) <- c("TreatmentGroup", "InfectionStatus", "Timepoint", "LesionScore")
-trait_df <- data.frame(trait_meta)
-trait_df$TreatmentGroup <- as.numeric(trait_df$TreatmentGroup)
-trait_df$InfectionStatus <- as.numeric(trait_df$InfectionStatus)
-trait_df$Timepoint <- as.numeric(trait_df$Timepoint)
-trait_df$LesionScore <- as.numeric(trait_df$LesionScore)
-
-
 i = 1
 j = 1
 while (i <= nrow(normalized_counts)){
@@ -514,3 +545,4 @@ while (i <= nrow(normalized_counts)){
 }
 file_path <- paste("plots/tables/pearson_corr_lesion.csv")
 write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+
