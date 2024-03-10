@@ -11,13 +11,14 @@ library("apeglm")
 library("ashr")
 library("Rmisc")
 library("RColorBrewer")
+library("gplots")
 install.packages("randomcoloR")
 remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
 
-setwd("C:/Users/dansa/Documents/Exjobb/summer_project")
 # File paths to count & metadata:
 path_to_metadata_file <- "metadata_chickens.csv"
 path_metadata_lesions <- "metadata_chickens_lesion.csv"
+
 # Read in files:
 metadata <- read.delim(path_to_metadata_file, sep = ";", check.names=FALSE, stringsAsFactors=FALSE)
 chicken_metadata <- metadata 
@@ -157,8 +158,8 @@ par(mar = c(5,5,5,5))
 v
 dev.off()
 
-#Plot with lesion scores:
 
+#Plot with lesion scores:
 microbiota_lesion <- microbiota
 microbiota_lesion@sam_data$SampleID <- paste(microbiota_lesion@sam_data$SampleID, trait_df$LesionScore, sep="_")
 
@@ -193,7 +194,6 @@ microbiota20 = prune_taxa(top20otus, microbiota)
 
 
 #Plot only top 20
-
 u <- plot_bar(microbiota20, x="SampleID", y="Abundance", fill="Rank4_2100")+
   facet_grid(~InfectionStatus, scales = "free", space = "free")
 u <- u + scale_fill_manual(name="Rank4", values=colors)+
@@ -301,7 +301,6 @@ dev.off()
 
 
 # DEseq analysis
-
 deseq_data<- phyloseq_to_deseq2(phyloclass, design= ~Description)
 keep <- rowSums(counts(deseq_data)) >= 10
 dds <- deseq_data[keep,]
@@ -363,8 +362,6 @@ sigtabAC_U_D7 = cbind(as(sigtabAC_U_D7, "data.frame"), as(tax_table(phyloclass)[
 sigtabAC_U_D10 <- subset(resAC_U_D10, padj < 0.01)
 sigtabAC_U_D10 = cbind(as(sigtabAC_U_D10, "data.frame"), as(tax_table(phyloclass)[rownames(sigtabAC_U_D10), ], "matrix"))
 
-
-
 conditions <- c("A_UI_D10","A_UI_D7", "C_UI_D10", "C_UI_D7", 
                 "A_U_D710", "A_I_D710", "C_U_D710", "C_I_D710",
                 "AC_I_D7", "AC_I_D10", "AC_U_D7", "AC_U_D10")
@@ -414,6 +411,7 @@ theme_set(theme_bw())
 scale_fill_discrete <- function(palname = "Set1", ...) {
   scale_fill_brewer(palette = palname, ...)
 }
+
 # Phylum order
 i = 1
 plot2_list <- list()
@@ -442,7 +440,6 @@ dev.off()
 
 
 # Write out lists sorted on adjusted p value
-
 j <- 1
 while (j <= length(sigtabs)){
   sigtab <- sigtabs[[j]]
@@ -465,9 +462,111 @@ while (j <= length(sigtabs)){
   j <- j + 1
 }
 
+# Heatmaps:
+#Create sigtabs without filters, Day7
+sigtab_allC_UI_D7 <- cbind(as(resC_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(resC_UI_D7), ], "matrix"))
+sigtab_allA_UI_D7 <- cbind(as(resA_UI_D7, "data.frame"), as(tax_table(phyloclass)[rownames(resA_UI_D7), ], "matrix"))
+sigtab_allAC_U_D7 <- cbind(as(resAC_U_D7, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_U_D7), ], "matrix"))
+sigtab_allAC_I_D7 <- cbind(as(resAC_I_D7, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_I_D7), ], "matrix"))
 
 
-# Correlation analysis 
+data_D7_full <- cbind(sigtab_allA_UI_D7[c(2,5,6)], sigtab_allAC_I_D7[c(2,5,6)],sigtab_allAC_U_D7[c(2,5,6)], sigtab_allC_UI_D7[c(2,5,6)])
+colnames(data_D7_full) <- c("A_UI_D7_lfc", "A_UI_D7_pval", "A_UI_D7_padj", "AC_I_D7_lfc", 
+                       "AC_I_D7_pval", "AC_I_D7_padj", "AC_U_D7_lfc", "AC_U_D7_pval", 
+                       "AC_U_D7_padj", "C_UI_D7_lfc", "C_UI_D7_pval", "C_UI_D7_padj")
+
+data_D7_full <- data_D7_full[complete.cases(data_D7_full), ]
+data_D7_full<- data_D7_full[data_D7_full$A_UI_D7_padj < 0.01 & data_D7_full$A_UI_D7_lfc >1 | 
+                              data_D7_full$AC_I_D7_padj < 0.01  & data_D7_full$AC_I_D7_lfc >1 | 
+                              data_D7_full$AC_U_D7_padj < 0.01 & data_D7_full$AC_U_D7_lfc >1 | 
+                              data_D7_full$C_UI_D7_padj < 0.01  & data_D7_full$C_UI_D7_lfc >1 , ]
+
+data_D7 <- data_D7_full[c("A_UI_D7_lfc", "AC_I_D7_lfc", "AC_U_D7_lfc", "C_UI_D7_lfc")]
+colnames(data_D7) <- c("A_UI_D7", "AC_I_D7", "AC_U_D7", "C_UI_D7")
+
+plot_path <- "plots/D7_heatmap.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D7), col="bluered", dendrogram ="none", labRow="none", scale = "column",  
+          margins = c(10, 8), key=FALSE, cexRow=0.5, srtRow = 45,lhei = c(0.025,0.975), 
+          lwid = c(0.025,0.975), Colv=FALSE)
+dev.off()
+
+#Day10:
+sigtab_allC_UI_D10 <- cbind(as(resC_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(resC_UI_D10), ], "matrix"))
+sigtab_allA_UI_D10 <- cbind(as(resA_UI_D10, "data.frame"), as(tax_table(phyloclass)[rownames(resA_UI_D10), ], "matrix"))
+sigtab_allAC_U_D10 <- cbind(as(resAC_U_D10, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_U_D10), ], "matrix"))
+sigtab_allAC_I_D10 <- cbind(as(resAC_I_D10, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_I_D10), ], "matrix"))
+data_D10_full <- cbind(sigtab_allA_UI_D10[c(2,5,6)], sigtab_allAC_I_D10[c(2,5,6)],sigtab_allAC_U_D10[c(2,5,6)], sigtab_allC_UI_D10[c(2,5,6)])
+colnames(data_D10_full) <- c("A_UI_D10_lfc", "A_UI_D10_pval", "A_UI_D10_padj", "AC_I_D10_lfc", 
+                            "AC_I_D10_pval", "AC_I_D10_padj", "AC_U_D10_lfc", "AC_U_D10_pval", 
+                            "AC_U_D10_padj", "C_UI_D10_lfc", "C_UI_D10_pval", "C_UI_D10_padj")
+data_D10_full <- data_D10_full[complete.cases(data_D10_full), ]
+
+data_D10_full<- data_D10_full[data_D10_full$A_UI_D10_padj < 0.01 & data_D10_full$A_UI_D10_lfc >1 | data_D10_full$AC_I_D10_padj < 0.01  & data_D10_full$AC_I_D10_lfc >1 | data_D10_full$AC_U_D10_padj < 0.01 & data_D10_full$AC_U_D10_lfc >1 | data_D10_full$C_UI_D10_padj < 0.01  & data_D10_full$C_UI_D10_lfc >1 , ]
+
+data_D10 <- data_D10_full[c("A_UI_D10_lfc", "AC_I_D10_lfc", "AC_U_D10_lfc", "C_UI_D10_lfc")]
+colnames(data_D10) <- c("A_UI_D10", "AC_I_D10", "AC_U_D10", "C_UI_D10")
+plot_path <- "plots/D10_heatmap.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D10), col="bluered", dendrogram ="none", labRow="none", scale = "column",  
+          margins = c(10, 8), key=FALSE, cexRow=0.5, srtRow = 45,lhei = c(0.025,0.975), 
+          lwid = c(0.025,0.975), Colv=FALSE)
+dev.off()
+
+
+
+# DEseq analysis- day7&10 merged
+#Create phyloseq class:
+phyloclass_2 <- import_biom(BIOMfilename,
+                          treefilename=treefile, refseqfilename=NULL, refseqFunction=readDNAStringSet, refseqArgs=NULL,
+                          parseFunction=parse_taxonomy_default, parallel=FALSE, version=1.0)
+
+#Set up the categories:
+metadata_merged <- metadata
+
+#Remove time as a variable:
+metadata_merged <- metadata
+metadata_merged <- metadata_merged[-5]
+metadata_merged$Description <- paste(metadata_merged$TreatmentGroup,metadata_merged$InfectionStatus, sep="_")
+
+phyloclass_2@sam_data$Description <- metadata_merged$Description
+deseq_data_2<- phyloseq_to_deseq2(phyloclass_2, design= ~Description)
+keep_2 <- rowSums(counts(deseq_data_2)) >= 10
+dds_2 <- deseq_data_2[keep_2,]
+gm_mean_2 = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+geoMeans_2 = apply(counts(dds_2), 1, gm_mean_2)
+dds_2 = estimateSizeFactors(dds_2, type="poscounts")
+dds_2 <- DESeq(dds_2)
+normalized_counts_2 <- counts(dds_2, normalized=TRUE)
+res_2 <- results(dds_2)
+
+# Create contrasts
+resAC_U <- results(dds_2, contrast=c("Description", "algae_uninfected", "control_uninfected"))
+resAC_I <- results(dds_2, contrast=c("Description", "algae_infected", "control_infected"))
+
+sigtab_allAC_I <- cbind(as(resAC_I, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_I), ], "matrix"))
+sigtab_allAC_U <- cbind(as(resAC_U, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_U), ], "matrix"))
+data_full <- cbind(sigtab_allAC_U[c(2,5,6)], sigtab_allAC_I[c(2,5,6)])
+colnames(data_full) <- c("AC_U_lfc", "AC_U_pval", "AC_U_padj", "AC_I_lfc", 
+                             "AC_I_pval", "AC_I_padj")
+data_full <- data_full[complete.cases(data_full), ]
+
+data_full<- data_full[data_full$AC_U_padj < 0.01 & data_full$AC_U_lfc >1 | data_full$AC_I_padj < 0.01  & data_full$AC_I_lfc >1 , ]
+
+data_D710 <- data_full[c("AC_U_lfc", "AC_I_lfc")]
+colnames(data_D710) <- c("AC_U", "AC_I")
+plot_path <- "plots/D710_heatmap.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D710), col="bluered", dendrogram ="none", scale = "column",  
+          margins = c(10, 8), key=FALSE, cexRow=0.5, srtRow = 45,lhei = c(0.025,0.975), 
+          lwid = c(0.025,0.975), Colv=FALSE)
+dev.off()
+
+
+
+# Lesion correlation analysis 
 
 i = 1
 j = 1
@@ -515,34 +614,183 @@ while (i <= nrow(normalized_counts)){
   if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
     df_temp <- cbind(rownames(normalized_counts)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
     if (j == 1) {
-      all_sig_corr <- df_temp
+      all_sig_corr_s <- df_temp
     } else {
-      all_sig_corr <- rbind(all_sig_corr, df_temp)
+      all_sig_corr_s <- rbind(all_sig_corr_s, df_temp)
     }
     j = j + 1
   }
   i = i + 1
 }
 file_path <- paste("plots/tables/spearman_corr_lesion.csv")
-write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+write.table(all_sig_corr_s, file_path, sep = ",", row.names = FALSE)
 
 
 i = 1
 j = 1
-
 while (i <= nrow(normalized_counts)){
   countTraitCortest_lesion = cor.test(normalized_counts[i,], trait_df$LesionScore, method = "pearson", use = "complete.obs")
   if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
     df_temp <- cbind(rownames(normalized_counts)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
     if (j == 1) {
-      all_sig_corr <- df_temp
+      all_sig_corr_p <- df_temp
     } else {
-      all_sig_corr <- rbind(all_sig_corr, df_temp)
+      all_sig_corr_p <- rbind(all_sig_corr_p, df_temp)
     }
     j = j + 1
   }
   i = i + 1
 }
 file_path <- paste("plots/tables/pearson_corr_lesion.csv")
-write.table(all_sig_corr, file_path, sep = ",", row.names = FALSE)
+write.table(all_sig_corr_p, file_path, sep = ",", row.names = FALSE)
 
+#Create separate correlations for algae and control groups:
+algae_samples <-c("A19", "A20", "A21", "A22", "A23", "A24", "A25", "A27", "A28", 
+                  "A29", "A30", "A31", "A32", "A33", "A34", "A35", "A36", "A37", 
+                  "A38", "A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", 
+                  "A47", "A48", "A49", "A50", "A52")
+keep_lesion <- match(colnames(normalized_counts), algae_samples)
+normalized_lesion<- normalized_counts[,algae_samples[1]]
+i=2
+while (i <=length((algae_samples))){
+  column <- algae_samples[i]
+  normalized_lesion <- cbind(normalized_lesion, normalized_counts[,column])
+  i = i + 1
+}
+colnames(normalized_lesion) <- algae_samples
+trait_lesion <- trait_df[trait_df$TreatmentGroup==1,]
+
+
+control_samples <-c("A1",  "A2",  "A3",  "A4",  "A5",  "A6",  "A7",  "A8",  "A9",  
+                    "A10", "A11", "A13", "A14", "A15", "A16", "A17", "A18", "A53", 
+                    "A54", "A55", "A56", "A57", "A59", "A60", "A62", "A63", "A64", 
+                    "A65", "A66", "A67", "A68", "A69")
+keep_control <- match(colnames(normalized_counts), control_samples)
+normalized_control<- normalized_counts[,control_samples[1]]
+i=2
+while (i <=length((control_samples))){
+  column <- control_samples[i]
+  normalized_control <- cbind(normalized_control, normalized_counts[,column])
+  i = i + 1
+}
+colnames(normalized_control) <- control_samples
+trait_control <- trait_df[trait_df$TreatmentGroup==0,]
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_lesion)){
+  countTraitCortest_lesion = cor.test(normalized_lesion[i,], trait_lesion$LesionScore, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_lesion)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_p <- df_temp
+    } else {
+      all_sig_corr_p <- rbind(all_sig_corr_p, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_lesion_algae.csv")
+write.table(all_sig_corr_p, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_lesion)){
+  countTraitCortest_lesion = cor.test(normalized_lesion[i,], trait_lesion$LesionScore, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_lesion)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_s <- df_temp
+    } else {
+      all_sig_corr_s <- rbind(all_sig_corr_s, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_lesion_algae.csv")
+write.table(all_sig_corr_s, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_control)){
+  countTraitCortest_lesion = cor.test(normalized_control[i,], trait_control$LesionScore, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_control)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_p_c <- df_temp
+    } else {
+      all_sig_corr_p_c <- rbind(all_sig_corr_p_c, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_lesion_control.csv")
+write.table(all_sig_corr_p_c, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_control)){
+  countTraitCortest_lesion = cor.test(normalized_control[i,], trait_control$LesionScore, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_control)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_s_c <- df_temp
+    } else {
+      all_sig_corr_s_c <- rbind(all_sig_corr_s_c, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_lesion_control.csv")
+write.table(all_sig_corr_s_c, file_path, sep = ",", row.names = FALSE)
+
+#merge and plot algae
+rownames(all_sig_corr_p)<- all_sig_corr_p[,1]
+all_sig_corr_p <- all_sig_corr_p[,c(2,3,4)]
+rownames(all_sig_corr_s)<- all_sig_corr_s[,1]
+all_sig_corr_s <- all_sig_corr_s[,c(2,3,4)]
+all_corr <- merge(all_sig_corr_p, all_sig_corr_s, by="row.names")
+rownames(all_corr)<- all_corr[,1]
+all_corr_algae <- all_corr[,c(2,5)]
+
+all_corr_algae_2<-matrix(nrow=66, ncol=2)
+all_corr_algae_2[,1] <- as.numeric(all_corr_algae[,1])
+all_corr_algae_2[,2] <- as.numeric(all_corr_algae[,2])
+rownames(all_corr_algae_2)<- rownames(all_corr_algae)
+colnames(all_corr_algae_2)<- c("pearson", "spearman")
+plot_path <- "plots/corr_algae_heatmap.png"
+png(plot_path, height = 2000, width = 1500)
+heatmap.2(all_corr_algae_2, col="bluered", dendrogram ="none", scale = "column",  
+          key=FALSE, cexRow=1.5, srtRow = 45,lhei = c(0.03,0.95),srtCol = 0, 
+          lwid = c(0.025,0.975), main="Correlation to lesions, algae")
+dev.off()
+
+
+#merge and plot control
+rownames(all_sig_corr_p_c)<- all_sig_corr_p_c[,1]
+all_sig_corr_p_c <- all_sig_corr_p_c[,c(2,3,4)]
+rownames(all_sig_corr_s_c)<- all_sig_corr_s_c[,1]
+all_sig_corr_s_c <- all_sig_corr_s_c[,c(2,3,4)]
+all_corr_c <- merge(all_sig_corr_p_c, all_sig_corr_s_c, by="row.names")
+rownames(all_corr_c)<- all_corr_c[,1]
+all_corr_control <- all_corr_c[,c(2,5)]
+
+all_corr_control_2<-matrix(nrow=165, ncol=2)
+all_corr_control_2[,1] <- as.numeric(all_corr_control[,1])
+all_corr_control_2[,2] <- as.numeric(all_corr_control[,2])
+rownames(all_corr_control_2)<- rownames(all_corr_control)
+colnames(all_corr_control_2)<- c("pearson", "spearman")
+plot_path <- "plots/corr_control_heatmap.png"
+png(plot_path, height = 2000, width = 1500)
+heatmap.2(all_corr_control_2, col="bluered", dendrogram ="none", scale = "column",  
+           key=FALSE, cexRow=1.5, srtRow = 45,lhei = c(0.03,0.95),srtCol = 0, 
+          lwid = c(0.025,0.975), main="Correlation to lesions, control")
+dev.off()
