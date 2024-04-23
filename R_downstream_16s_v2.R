@@ -300,7 +300,174 @@ multiplot(plotlist = plot_list)
 dev.off()
 
 
-# DEseq analysis
+#Agglomerate DESeq
+glom_tax <- tax_glom(phyloclass, "Rank5")
+deseq_data2<- phyloseq_to_deseq2(glom_tax, design= ~Description)
+keep <- rowSums(counts(deseq_data2)) >= 10
+dds2 <- deseq_data2[keep,]
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+geoMeans = apply(counts(dds2), 1, gm_mean)
+dds2 = estimateSizeFactors(dds2, type="poscounts")
+dds2 <- DESeq(dds2)
+normalized_counts_glom <- counts(dds2, normalized=TRUE)
+res2 <- results(dds2)
+resA_UI_D10 <- results(dds2, contrast=c("Description", "algae_infected_D10", "algae_uninfected_D10"))
+resA_UI_D7 <- results(dds2, contrast=c("Description", "algae_infected_D7", "algae_uninfected_D7"))
+resC_UI_D10 <- results(dds2, contrast=c("Description", "control_infected_D10", "control_uninfected_D10"))
+resC_UI_D7 <- results(dds2, contrast=c("Description", "control_infected_D7", "control_uninfected_D7"))
+resA_U_D710 <- results(dds2, contrast=c("Description", "algae_uninfected_D10", "algae_uninfected_D7"))
+resA_I_D710 <- results(dds2, contrast=c("Description", "algae_infected_D10", "algae_infected_D7"))
+resC_U_D710 <- results(dds2, contrast=c("Description", "control_uninfected_D10", "control_uninfected_D7"))
+resC_I_D710 <- results(dds2, contrast=c("Description", "control_infected_D10", "control_infected_D7"))
+resAC_I_D7 <- results(dds2, contrast=c("Description", "algae_infected_D7", "control_infected_D7"))
+resAC_I_D10 <- results(dds2, contrast=c("Description", "algae_infected_D10", "control_infected_D10"))
+resAC_U_D7 <- results(dds2, contrast=c("Description", "algae_uninfected_D7", "control_uninfected_D7"))
+resAC_U_D10 <- results(dds2, contrast=c("Description", "algae_uninfected_D10", "control_uninfected_D10"))
+
+#Create sigtabs without filters, Day7
+sigtab_allC_UI_D7 <- cbind(as(resC_UI_D7, "data.frame"), as(tax_table(glom_tax)[rownames(resC_UI_D7), ], "matrix"))
+sigtab_allA_UI_D7 <- cbind(as(resA_UI_D7, "data.frame"), as(tax_table(glom_tax)[rownames(resA_UI_D7), ], "matrix"))
+sigtab_allAC_U_D7 <- cbind(as(resAC_U_D7, "data.frame"), as(tax_table(glom_tax)[rownames(resAC_U_D7), ], "matrix"))
+sigtab_allAC_I_D7 <- cbind(as(resAC_I_D7, "data.frame"), as(tax_table(glom_tax)[rownames(resAC_I_D7), ], "matrix"))
+
+data_D7_full <- cbind(sigtab_allA_UI_D7[c(2,5,6)], sigtab_allAC_I_D7[c(2,5,6)],sigtab_allAC_U_D7[c(2,5,6)], sigtab_allC_UI_D7[c(2,5,6)])
+colnames(data_D7_full) <- c("A_UI_D7_lfc", "A_UI_D7_pval", "A_UI_D7_padj", "AC_I_D7_lfc", 
+                            "AC_I_D7_pval", "AC_I_D7_padj", "AC_U_D7_lfc", "AC_U_D7_pval", 
+                            "AC_U_D7_padj", "C_UI_D7_lfc", "C_UI_D7_pval", "C_UI_D7_padj")
+data_D7_full <- data_D7_full[complete.cases(data_D7_full), ]
+data_D7_full<- data_D7_full[data_D7_full$A_UI_D7_pval < 0.05 | 
+                              data_D7_full$AC_I_D7_pval < 0.05 | 
+                              data_D7_full$AC_U_D7_pval < 0.05 | 
+                              data_D7_full$C_UI_D7_pval < 0.05 , ]
+data_D7 <- data_D7_full[c("A_UI_D7_lfc", "AC_I_D7_lfc", "AC_U_D7_lfc", "C_UI_D7_lfc")]
+colnames(data_D7) <- c("A_UI_D7", "AC_I_D7", "AC_U_D7", "C_UI_D7")
+taxa<- list()
+for (i in rownames(data_D7)){
+  if(tax_table(glom_tax)[i,5] == "none"){
+    print(tax_table(glom_tax)[i,4])
+    if(tax_table(glom_tax)[i,4] == "none"){
+      print(tax_table(glom_tax)[i,3])
+      taxa <- append(taxa,tax_table(glom_tax)[i,3])
+    }else{taxa <- append(taxa,tax_table(glom_tax)[i,4])
+    }
+  }else{
+    taxa <- append(taxa,tax_table(glom_tax)[i,5])
+  }
+}
+rownames(data_D7)<-taxa
+colnames(data_D7)<-(c("Algae, infected vs. uninfected, day 7", "Algae vs. control, infected, day 7",  "Algae vs. control, uninfected, day 7","Control, infected vs. uninfected, day 7"))
+
+plot_path <- "plots/D7_heatmap_glom.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D7), cellnote=round(data_D7,2),
+          notecex=3.0,key=FALSE, notecol="Black",trace="none", col="bluered", dendrogram ="none", scale = "none",  
+          margins = c(10, 25), cexRow=3, srtRow = 45, Colv=FALSE,lhei = c(0.06,0.9), 
+          lwid = c(0.025,0.95), srtCol=10,adjCol = c(NA,3))
+dev.off()
+
+#Day10:
+sigtab_allC_UI_D10 <- cbind(as(resC_UI_D10, "data.frame"), as(tax_table(glom_tax)[rownames(resC_UI_D10), ], "matrix"))
+sigtab_allA_UI_D10 <- cbind(as(resA_UI_D10, "data.frame"), as(tax_table(glom_tax)[rownames(resA_UI_D10), ], "matrix"))
+sigtab_allAC_U_D10 <- cbind(as(resAC_U_D10, "data.frame"), as(tax_table(glom_tax)[rownames(resAC_U_D10), ], "matrix"))
+sigtab_allAC_I_D10 <- cbind(as(resAC_I_D10, "data.frame"), as(tax_table(glom_tax)[rownames(resAC_I_D10), ], "matrix"))
+data_D10_full <- cbind(sigtab_allA_UI_D10[c(2,5,6)], sigtab_allAC_I_D10[c(2,5,6)],sigtab_allAC_U_D10[c(2,5,6)], sigtab_allC_UI_D10[c(2,5,6)])
+colnames(data_D10_full) <- c("A_UI_D10_lfc", "A_UI_D10_pval", "A_UI_D10_padj", "AC_I_D10_lfc", 
+                             "AC_I_D10_pval", "AC_I_D10_padj", "AC_U_D10_lfc", "AC_U_D10_pval", 
+                             "AC_U_D10_padj", "C_UI_D10_lfc", "C_UI_D10_pval", "C_UI_D10_padj")
+data_D10_full <- data_D10_full[complete.cases(data_D10_full), ]
+data_D10_full<- data_D10_full[data_D10_full$A_UI_D10_pval < 0.05 | data_D10_full$AC_I_D10_pval < 0.05| 
+                                data_D10_full$AC_U_D10_pval < 0.05 | data_D10_full$C_UI_D10_pval < 0.05 , ]
+data_D10 <- data_D10_full[c("A_UI_D10_lfc", "AC_I_D10_lfc", "AC_U_D10_lfc", "C_UI_D10_lfc")]
+colnames(data_D10) <- c("A_UI_D10", "AC_I_D10", "AC_U_D10", "C_UI_D10")
+taxa<- list()
+for (i in rownames(data_D10)){
+  if(tax_table(glom_tax)[i,5] == "none"){
+    print(tax_table(glom_tax)[i,4])
+    if(tax_table(glom_tax)[i,4] == "none"){
+      print(tax_table(glom_tax)[i,3])
+      taxa <- append(taxa,tax_table(glom_tax)[i,3])
+    }else{taxa <- append(taxa,tax_table(glom_tax)[i,4])
+    }
+  }else{
+    taxa <- append(taxa,tax_table(glom_tax)[i,5])
+  }
+}
+rownames(data_D10) <- taxa
+colnames(data_D10)<-(c("Algae, infected vs. uninfected, day 10", "Algae vs. control, infected, day 10",  "Algae vs. control, uninfected, day 10","Control, infected vs. uninfected, day 10"))
+
+
+plot_path <- "plots/D10_heatmap_glom.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D10), cellnote=round(data_D10,2),
+          notecex=3.0,key=FALSE,
+          notecol="Black",col="bluered", dendrogram ="none", scale = "none",  
+          margins = c(10, 25), cexRow=3, srtRow = 45, Colv=FALSE,lhei = c(0.06,0.9), 
+          lwid = c(0.025,0.95), trace="none",srtCol=10,adjCol = c(NA,3))
+dev.off()
+
+
+
+# DEseq analysis- day7&10 merged
+#Create phyloseq class:
+phyloclass_2 <- import_biom(BIOMfilename,
+                            treefilename=treefile, refseqfilename=NULL, refseqFunction=readDNAStringSet, refseqArgs=NULL,
+                            parseFunction=parse_taxonomy_default, parallel=FALSE, version=1.0)
+#Set up the categories:
+metadata_merged <- metadata
+#Remove time as a variable:
+metadata_merged <- metadata
+metadata_merged <- metadata_merged[-5]
+metadata_merged$Description <- paste(metadata_merged$TreatmentGroup,metadata_merged$InfectionStatus, sep="_")
+phyloclass_2@sam_data$Description <- metadata_merged$Description
+glom_tax2 <- tax_glom(phyloclass_2, "Rank5")
+deseq_data_2<- phyloseq_to_deseq2(glom_tax2, design= ~Description)
+keep_2 <- rowSums(counts(deseq_data_2)) >= 10
+dds_2 <- deseq_data_2[keep_2,]
+gm_mean_2 = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+geoMeans_2 = apply(counts(dds_2), 1, gm_mean_2)
+dds_2 = estimateSizeFactors(dds_2, type="poscounts")
+dds_2 <- DESeq(dds_2)
+normalized_counts_2 <- counts(dds_2, normalized=TRUE)
+res_2 <- results(dds_2)
+
+# Create contrasts
+resAC_U <- results(dds_2, contrast=c("Description", "algae_uninfected", "control_uninfected"))
+resAC_I <- results(dds_2, contrast=c("Description", "algae_infected", "control_infected"))
+sigtab_allAC_I <- cbind(as(resAC_I, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_I), ], "matrix"))
+sigtab_allAC_U <- cbind(as(resAC_U, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_U), ], "matrix"))
+data_full <- cbind(sigtab_allAC_U[c(2,5,6)], sigtab_allAC_I[c(2,5,6)])
+colnames(data_full) <- c("AC_U_lfc", "AC_U_pval", "AC_U_padj", "AC_I_lfc", 
+                         "AC_I_pval", "AC_I_padj")
+data_full <- data_full[complete.cases(data_full), ]
+data_full<- data_full[data_full$AC_U_pval < 0.05 | data_full$AC_I_pval < 0.05 , ]
+data_D710 <- data_full[c("AC_U_lfc", "AC_I_lfc")]
+colnames(data_D710) <- c("AC_U", "AC_I")
+taxa<- list()
+for (i in rownames(data_D710)){
+  if(tax_table(glom_tax2)[i,5] == "none"){
+    taxa <- append(taxa,tax_table(glom_tax2)[i,4])
+  }else{
+  taxa <- append(taxa,tax_table(glom_tax2)[i,5])
+  }
+}
+rownames(data_D710) <- taxa
+colnames(data_D710)<-(c("Algae vs. control, uninfected", "Algae vs. control, infected"))
+
+plot_path <- "plots/D710_heatmap_glom.png"
+png(plot_path, height = 1800, width = 1500)
+heatmap.2(as.matrix(data_D710), cellnote=round(data_D710,2),
+          notecex=3.0, notecol="Black",trace="none",col=bluered(100), dendrogram ="none", scale = "none",  
+          margins = c(10, 25), cexRow=3, srtRow = 45, lhei = c(0.06,0.9), 
+          lwid = c(0.025,0.95), Colv=FALSE, key=FALSE,srtCol=0,adjCol = c(NA,3))
+dev.off()
+
+
+
+# DEseq analysis (full)
 deseq_data<- phyloseq_to_deseq2(phyloclass, design= ~Description)
 keep <- rowSums(counts(deseq_data)) >= 10
 dds <- deseq_data[keep,]
@@ -677,6 +844,7 @@ colnames(normalized_control) <- control_samples
 trait_control <- trait_df[trait_df$TreatmentGroup==0,]
 
 
+
 i = 1
 j = 1
 while (i <= nrow(normalized_lesion)){
@@ -793,4 +961,182 @@ png(plot_path, height = 2000, width = 1500)
 heatmap.2(all_corr_control_2, col="bluered", dendrogram ="none", scale = "column",  
            key=FALSE, cexRow=1.5, srtRow = 45,lhei = c(0.03,0.95),srtCol = 0, 
           lwid = c(0.025,0.975), main="Correlation to lesions, control")
+dev.off()
+
+
+
+#Agglomerate:
+
+#Create separate correlations for algae and control groups:
+algae_samples <-c("A19", "A20", "A21", "A22", "A23", "A24", "A25", "A27", "A28", 
+                  "A29", "A30", "A31", "A32", "A33", "A34", "A35", "A36", "A37", 
+                  "A38", "A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", 
+                  "A47", "A48", "A49", "A50", "A52")
+keep_lesion <- match(colnames(normalized_counts_glom), algae_samples)
+normalized_lesion<- normalized_counts_glom[,algae_samples[1]]
+i=2
+while (i <=length((algae_samples))){
+  column <- algae_samples[i]
+  normalized_lesion <- cbind(normalized_lesion, normalized_counts_glom[,column])
+  i = i + 1
+}
+colnames(normalized_lesion) <- algae_samples
+trait_lesion <- trait_df[trait_df$TreatmentGroup==1,]
+
+
+control_samples <-c("A1",  "A2",  "A3",  "A4",  "A5",  "A6",  "A7",  "A8",  "A9",  
+                    "A10", "A11", "A13", "A14", "A15", "A16", "A17", "A18", "A53", 
+                    "A54", "A55", "A56", "A57", "A59", "A60", "A62", "A63", "A64", 
+                    "A65", "A66", "A67", "A68", "A69")
+keep_control <- match(colnames(normalized_counts_glom), control_samples)
+normalized_control<- normalized_counts_glom[,control_samples[1]]
+i=2
+while (i <=length((control_samples))){
+  column <- control_samples[i]
+  normalized_control <- cbind(normalized_control, normalized_counts_glom[,column])
+  i = i + 1
+}
+colnames(normalized_control) <- control_samples
+trait_control <- trait_df[trait_df$TreatmentGroup==0,]
+
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_lesion)){
+  countTraitCortest_lesion = cor.test(normalized_lesion[i,], trait_lesion$LesionScore, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_lesion)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_p <- df_temp
+    } else {
+      all_sig_corr_p <- rbind(all_sig_corr_p, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_lesion_algae_glom.csv")
+write.table(all_sig_corr_p, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_lesion)){
+  countTraitCortest_lesion = cor.test(normalized_lesion[i,], trait_lesion$LesionScore, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_lesion)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_s <- df_temp
+    } else {
+      all_sig_corr_s <- rbind(all_sig_corr_s, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_lesion_algae_glom.csv")
+write.table(all_sig_corr_s, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_control)){
+  countTraitCortest_lesion = cor.test(normalized_control[i,], trait_control$LesionScore, method = "pearson", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_control)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_p_c <- df_temp
+    } else {
+      all_sig_corr_p_c <- rbind(all_sig_corr_p_c, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/pearson_corr_lesion_control_glom.csv")
+write.table(all_sig_corr_p_c, file_path, sep = ",", row.names = FALSE)
+
+
+i = 1
+j = 1
+while (i <= nrow(normalized_control)){
+  countTraitCortest_lesion = cor.test(normalized_control[i,], trait_control$LesionScore, method = "spearman", use = "complete.obs")
+  if ((is.na(countTraitCortest_lesion$p.value) == FALSE) & (countTraitCortest_lesion$p.value <= 0.05)){
+    df_temp <- cbind(rownames(normalized_control)[i], countTraitCortest_lesion$estimate, countTraitCortest_lesion$p.value, paste(c(taxtable[c(rownames(normalized_counts)[i]),])))
+    if (j == 1) {
+      all_sig_corr_s_c <- df_temp
+    } else {
+      all_sig_corr_s_c <- rbind(all_sig_corr_s_c, df_temp)
+    }
+    j = j + 1
+  }
+  i = i + 1
+}
+file_path <- paste("plots/tables/spearman_corr_lesion_control_glom.csv")
+write.table(all_sig_corr_s_c, file_path, sep = ",", row.names = FALSE)
+
+#merge and plot algae
+rownames(all_sig_corr_p)<- all_sig_corr_p[,1]
+all_sig_corr_p <- all_sig_corr_p[,c(2,3,4)]
+rownames(all_sig_corr_s)<- all_sig_corr_s[,1]
+all_sig_corr_s <- all_sig_corr_s[,c(2,3,4)]
+all_corr <- merge(all_sig_corr_p, all_sig_corr_s, by="row.names")
+rownames(all_corr)<- all_corr[,1]
+all_corr_algae <- all_corr[,c(2,5)]
+
+all_corr_algae_2<-matrix(nrow=4, ncol=2)
+all_corr_algae_2[,1] <- as.numeric(all_corr_algae[,1])
+all_corr_algae_2[,2] <- as.numeric(all_corr_algae[,2])
+rownames(all_corr_algae_2)<- rownames(all_corr_algae)
+colnames(all_corr_algae_2)<- c("pearson", "spearman")
+taxa<- list()
+for (i in rownames(all_corr_algae_2)){
+  if(tax_table(glom_tax2)[i,5] == "none"){
+    taxa <- append(taxa,tax_table(glom_tax2)[i,4])
+  }else{
+    taxa <- append(taxa,tax_table(glom_tax2)[i,5])
+  }
+}
+rownames(all_corr_algae_2) <- taxa
+
+plot_path <- "plots/corr_algae_heatmap_glom.png"
+png(plot_path, height = 2000, width = 1500)
+heatmap.2(all_corr_algae_2, col="bluered", dendrogram ="none", scale = "none", trace="none",  
+          cellnote=round(all_corr_algae_2,2),
+          notecex=3.0, notecol="Black",key=FALSE, cexRow=3, srtRow = 45,lhei = c(0.03,0.95),srtCol = 0, 
+          lwid = c(0.025,0.975), margins = c(10, 25),main="Correlation to lesions, algae")
+dev.off()
+
+
+#merge and plot control
+rownames(all_sig_corr_p_c)<- all_sig_corr_p_c[,1]
+all_sig_corr_p_c <- all_sig_corr_p_c[,c(2,3,4)]
+rownames(all_sig_corr_s_c)<- all_sig_corr_s_c[,1]
+all_sig_corr_s_c <- all_sig_corr_s_c[,c(2,3,4)]
+all_corr_c <- merge(all_sig_corr_p_c, all_sig_corr_s_c, by="row.names")
+rownames(all_corr_c)<- all_corr_c[,1]
+all_corr_control <- all_corr_c[,c(2,5)]
+
+all_corr_control_2<-matrix(nrow=8, ncol=2)
+all_corr_control_2[,1] <- as.numeric(all_corr_control[,1])
+all_corr_control_2[,2] <- as.numeric(all_corr_control[,2])
+rownames(all_corr_control_2)<- rownames(all_corr_control)
+colnames(all_corr_control_2)<- c("pearson", "spearman")
+taxa<- list()
+for (i in rownames(all_corr_control_2)){
+  if(tax_table(glom_tax2)[i,5] == "none"){
+    taxa <- append(taxa,tax_table(glom_tax2)[i,4])
+  }else{
+    taxa <- append(taxa,tax_table(glom_tax2)[i,5])
+  }
+}
+rownames(all_corr_control_2) <- taxa
+rownames(all_corr_control_2)[5] <- "Firmicutes"
+plot_path <- "plots/corr_control_heatmap_glom.png"
+png(plot_path, height = 2000, width = 1500)
+heatmap.2(all_corr_control_2, col="bluered", dendrogram ="none", scale = "none", trace="none",  
+          cellnote=round(all_corr_control_2,2),
+          notecex=3.0, notecol="Black",key=FALSE, cexRow=3, srtRow = 45,lhei = c(0.03,0.95),srtCol = 0, 
+          lwid = c(0.025,0.975), margins = c(10, 25), main="Correlation to lesions, control")
 dev.off()
