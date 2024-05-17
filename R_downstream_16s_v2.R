@@ -344,11 +344,10 @@ data_D7_full<- data_D7_full[data_D7_full$A_UI_D7_pval < 0.05 |
 data_D7 <- data_D7_full[c("A_UI_D7_lfc", "AC_I_D7_lfc", "AC_U_D7_lfc", "C_UI_D7_lfc")]
 colnames(data_D7) <- c("A_UI_D7", "AC_I_D7", "AC_U_D7", "C_UI_D7")
 taxa<- list()
+
 for (i in rownames(data_D7)){
   if(tax_table(glom_tax)[i,5] == "none"){
-    print(tax_table(glom_tax)[i,4])
     if(tax_table(glom_tax)[i,4] == "none"){
-      print(tax_table(glom_tax)[i,3])
       taxa <- append(taxa,tax_table(glom_tax)[i,3])
     }else{taxa <- append(taxa,tax_table(glom_tax)[i,4])
     }
@@ -357,6 +356,10 @@ for (i in rownames(data_D7)){
   }
 }
 rownames(data_D7)<-taxa
+
+#manual rownames
+rownames(data_D7)<- c("Bifidobacteriaceae", "Eggerthellaceae", "Enterobacteriaceae", "Sutterellaceae", "Clostridia vadinBB60 group", "Anaerovoracaceae", "Acholeplasmataceae", "(Oscillospirales) UCG-010",
+                      "Monoglobaceae", "Lactobacillaceae")
 colnames(data_D7)<-(c("Algae, infected vs. uninfected, day 7", "Algae vs. control, infected, day 7",  "Algae vs. control, uninfected, day 7","Control, infected vs. uninfected, day 7"))
 
 plot_path <- "plots/D7_heatmap_glom.png"
@@ -381,12 +384,15 @@ data_D10_full<- data_D10_full[data_D10_full$A_UI_D10_pval < 0.05 | data_D10_full
                                 data_D10_full$AC_U_D10_pval < 0.05 | data_D10_full$C_UI_D10_pval < 0.05 , ]
 data_D10 <- data_D10_full[c("A_UI_D10_lfc", "AC_I_D10_lfc", "AC_U_D10_lfc", "C_UI_D10_lfc")]
 colnames(data_D10) <- c("A_UI_D10", "AC_I_D10", "AC_U_D10", "C_UI_D10")
+data_D10_p <- data_D10_full[c("A_UI_D10_pval", "AC_I_D10_pval", "AC_U_D10_pval", "C_UI_D10_pval")]
+colnames(data_D10_p) <- c("A_UI_D10", "AC_I_D10", "AC_U_D10", "C_UI_D10")
+
 taxa<- list()
+
+#Find taxa for row names
 for (i in rownames(data_D10)){
   if(tax_table(glom_tax)[i,5] == "none"){
-    print(tax_table(glom_tax)[i,4])
     if(tax_table(glom_tax)[i,4] == "none"){
-      print(tax_table(glom_tax)[i,3])
       taxa <- append(taxa,tax_table(glom_tax)[i,3])
     }else{taxa <- append(taxa,tax_table(glom_tax)[i,4])
     }
@@ -395,15 +401,21 @@ for (i in rownames(data_D10)){
   }
 }
 rownames(data_D10) <- taxa
+rownames(data_D10_p) <- taxa
+colnames(data_D10_p)<-(c("Algae, infected vs. uninfected, day 10", "Algae vs. control, infected, day 10",  "Algae vs. control, uninfected, day 10","Control, infected vs. uninfected, day 10"))
+
+#rownames manual
+rownames(data_D10) <- c("Bifidobacteriaceae","Mycobacteriaceae", "Enterobacteriaceae","Rhodobacteraceae", "Clostridia vadinBB60 group", "Clostridiaceae", "Acholeplasmataceae", "(Oscillospirales) UCG-010", "Oscillospiraceae", "Monoglobaceae",
+                        "(Oscillospirales) Unclassified", "(Oscillospirales) coprostanoligenes group","(Enterobacterales) Unclassified", "(Firmicutes) Unclassified", "Lactobacillaceae", "Lachnospiraceae")
+
 colnames(data_D10)<-(c("Algae, infected vs. uninfected, day 10", "Algae vs. control, infected, day 10",  "Algae vs. control, uninfected, day 10","Control, infected vs. uninfected, day 10"))
 
-
 plot_path <- "plots/D10_heatmap_glom.png"
-png(plot_path, height = 1800, width = 1500)
+png(plot_path, height = 2100, width = 1800)
 heatmap.2(as.matrix(data_D10), cellnote=round(data_D10,2),
           notecex=3.0,key=FALSE,
           notecol="Black",col="bluered", dendrogram ="none", scale = "none",  
-          margins = c(10, 25), cexRow=3, srtRow = 45, Colv=FALSE,lhei = c(0.06,0.9), 
+          margins = c(10, 40), cexRow=3, srtRow = 45, Colv=FALSE,lhei = c(0.06,0.9), 
           lwid = c(0.025,0.95), trace="none",srtCol=10,adjCol = c(NA,3))
 dev.off()
 
@@ -437,31 +449,58 @@ res_2 <- results(dds_2)
 # Create contrasts
 resAC_U <- results(dds_2, contrast=c("Description", "algae_uninfected", "control_uninfected"))
 resAC_I <- results(dds_2, contrast=c("Description", "algae_infected", "control_infected"))
-sigtab_allAC_I <- cbind(as(resAC_I, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_I), ], "matrix"))
-sigtab_allAC_U <- cbind(as(resAC_U, "data.frame"), as(tax_table(phyloclass)[rownames(resAC_U), ], "matrix"))
-data_full <- cbind(sigtab_allAC_U[c(2,5,6)], sigtab_allAC_I[c(2,5,6)])
+resA_IU <- results(dds_2, contrast=c("Description", "algae_infected", "algae_uninfected"))
+resC_IU <- results(dds_2, contrast=c("Description", "control_infected", "control_uninfected"))
+
+
+sigtab_allAC_I <- cbind(as(resAC_I, "data.frame"), as(tax_table(glom_tax2)[rownames(resAC_I), ], "matrix"))
+sigtab_allAC_U <- cbind(as(resAC_U, "data.frame"), as(tax_table(glom_tax2)[rownames(resAC_U), ], "matrix"))
+sigtab_allA_IU <- cbind(as(resA_IU, "data.frame"), as(tax_table(glom_tax2)[rownames(resA_IU), ], "matrix"))
+sigtab_allC_IU <- cbind(as(resC_IU, "data.frame"), as(tax_table(glom_tax2)[rownames(resC_IU), ], "matrix"))
+
+
+data_full <- cbind(sigtab_allAC_U[c(2,5,6)], sigtab_allAC_I[c(2,5,6)],sigtab_allA_IU[c(2,5,6)],sigtab_allC_IU[c(2,5,6)])
 colnames(data_full) <- c("AC_U_lfc", "AC_U_pval", "AC_U_padj", "AC_I_lfc", 
-                         "AC_I_pval", "AC_I_padj")
+                         "AC_I_pval", "AC_I_padj","A_IU_lfc", "A_IU_pval", "A_IU_padj","C_IU_lfc", "C_IU_pval", "C_IU_padj")
 data_full <- data_full[complete.cases(data_full), ]
-data_full<- data_full[data_full$AC_U_pval < 0.05 | data_full$AC_I_pval < 0.05 , ]
-data_D710 <- data_full[c("AC_U_lfc", "AC_I_lfc")]
-colnames(data_D710) <- c("AC_U", "AC_I")
+data_full<- data_full[data_full$AC_U_pval < 0.05 | data_full$AC_I_pval < 0.05  | data_full$A_IU_pval < 0.05  | data_full$C_IU_pval < 0.05 , ]
+data_D710 <- data_full[c("AC_U_lfc", "AC_I_lfc", "A_IU_lfc", "C_IU_lfc")]
+colnames(data_D710) <- c("AC_U", "AC_I", "A_IU", "C_IU")
+
+data_D710_p <- data_full[c("AC_U_pval", "AC_I_pval", "A_IU_pval", "C_IU_pval")]
+colnames(data_D710_p) <- c("AC_U", "AC_I", "A_IU", "C_IU")
+
+#find taxa names from table:
 taxa<- list()
 for (i in rownames(data_D710)){
   if(tax_table(glom_tax2)[i,5] == "none"){
-    taxa <- append(taxa,tax_table(glom_tax2)[i,4])
+    if(tax_table(glom_tax2)[i,4] == "none"){
+      if(tax_table(glom_tax2)[i,3] == "none"){
+        taxa <- append(taxa,tax_table(glom_tax2)[i,2])
+      }else{
+        taxa <- append(taxa,tax_table(glom_tax2)[i,3])
+      }}else{
+      taxa <- append(taxa,tax_table(glom_tax2)[i,4])
+    }
   }else{
-  taxa <- append(taxa,tax_table(glom_tax2)[i,5])
+  taxa <- append(taxa,paste(tax_table(glom_tax2)[i,4],",",tax_table(glom_tax2)[i,5]))
   }
 }
 rownames(data_D710) <- taxa
-colnames(data_D710)<-(c("Algae vs. control, uninfected", "Algae vs. control, infected"))
+
+#set taxa names manually
+rownames(data_D710)<-(c("(Bacteria) Unclassified", "Enterobacteriaceae", "Clostridia vadinBB60 group", "Acidaminococcaceae", "Clostridiaceae", "Anaerovoracaceae", "Acholeplasmataceae", "(Oscillospirales) UCG-010", "Oscillospiraceae", "Monoglobaceae", "(Firmicutes) Unclassified", "Lactobacillaceae", "Lachnospiraceae"))
+
+rownames(data_D710_p) <- taxa
+colnames(data_D710)<-(c("Algae vs. control, uninfected", "Algae vs. control, infected", "Algae, infected vs. uninfected", "Control, infected vs. uninfected"))
+colnames(data_D710_p)<-(c("Algae vs. control, uninfected", "Algae vs. control, infected", "Algae, infected vs. uninfected", "Control, infected vs. uninfected"))
+
 
 plot_path <- "plots/D710_heatmap_glom.png"
-png(plot_path, height = 1800, width = 1500)
+png(plot_path, height = 2100, width = 1800)
 heatmap.2(as.matrix(data_D710), cellnote=round(data_D710,2),
           notecex=3.0, notecol="Black",trace="none",col=bluered(100), dendrogram ="none", scale = "none",  
-          margins = c(10, 25), cexRow=3, srtRow = 45, lhei = c(0.06,0.9), 
+          margins = c(15, 30), cexRow=3, srtRow = 30, lhei = c(0.06,0.9), 
           lwid = c(0.025,0.95), Colv=FALSE, key=FALSE,srtCol=0,adjCol = c(NA,3))
 dev.off()
 
